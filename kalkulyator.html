@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalkulyator</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f4f3fb; }
+    .calc { width: 320px; background: #fff; border: 0.5px solid #e0ddd5; border-radius: 16px; overflow: hidden; }
+    .display { padding: 20px 20px 12px; background: #f9f9f7; border-bottom: 0.5px solid #e0ddd5; }
+    .expr { font-size: 13px; color: #888; min-height: 18px; text-align: right; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .result { font-size: 36px; font-weight: 500; text-align: right; color: #1a1a1a; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+    .history { padding: 8px 20px; border-bottom: 0.5px solid #e0ddd5; min-height: 32px; }
+    .hist-item { font-size: 12px; color: #aaa; text-align: right; font-family: monospace; }
+    .btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #e0ddd5; }
+    .btn {
+      padding: 18px 0; font-size: 16px; font-weight: 500; border: none; cursor: pointer;
+      background: #fff; color: #1a1a1a; transition: background 0.1s;
+      user-select: none; font-family: system-ui, sans-serif;
+    }
+    .btn:hover { background: #f4f3fb; }
+    .btn:active { background: #ebe9f5; transform: scale(0.97); }
+    .btn.op { color: #534AB7; }
+    .btn.eq { background: #534AB7; color: #fff; }
+    .btn.eq:hover { background: #3C3489; }
+    .btn.clear { color: #A32D2D; }
+    .btn.zero { grid-column: span 2; }
+  </style>
+</head>
+<body>
+
+<div class="calc">
+  <div class="display">
+    <div class="expr" id="expr"></div>
+    <div class="result" id="result">0</div>
+  </div>
+  <div class="history" id="history"></div>
+  <div class="btns">
+    <button class="btn clear" data-v="AC">AC</button>
+    <button class="btn op"    data-v="+/-">+/-</button>
+    <button class="btn op"    data-v="%">%</button>
+    <button class="btn op"    data-v="/">÷</button>
+
+    <button class="btn" data-v="7">7</button>
+    <button class="btn" data-v="8">8</button>
+    <button class="btn" data-v="9">9</button>
+    <button class="btn op" data-v="*">×</button>
+
+    <button class="btn" data-v="4">4</button>
+    <button class="btn" data-v="5">5</button>
+    <button class="btn" data-v="6">6</button>
+    <button class="btn op" data-v="-">−</button>
+
+    <button class="btn" data-v="1">1</button>
+    <button class="btn" data-v="2">2</button>
+    <button class="btn" data-v="3">3</button>
+    <button class="btn op" data-v="+">+</button>
+
+    <button class="btn zero" data-v="0">0</button>
+    <button class="btn"      data-v=".">.</button>
+    <button class="btn eq"   data-v="=">=</button>
+  </div>
+</div>
+
+<script>
+  let cur = '0', expr = '', justEq = false;
+  const rEl = document.getElementById('result');
+  const eEl = document.getElementById('expr');
+  const hEl = document.getElementById('history');
+  const hist = [];
+
+  function fmt(n) {
+    const s = parseFloat(n.toPrecision(12)).toString();
+    return s.length > 12 ? parseFloat(n.toPrecision(8)).toString() : s;
+  }
+
+  function calc(e) {
+    try { return Function('"use strict"; return (' + e + ')')(); }
+    catch { return null; }
+  }
+
+  function press(v) {
+    if (v === 'AC') { cur = '0'; expr = ''; justEq = false; }
+    else if (v === '+/-') { cur = cur.startsWith('-') ? cur.slice(1) : '-' + cur; }
+    else if (v === '%') { cur = fmt(parseFloat(cur) / 100); }
+    else if (v === '=') {
+      const full = expr + cur;
+      const res = calc(full);
+      if (res !== null && isFinite(res)) {
+        const r = fmt(res);
+        hist.unshift(full + ' = ' + r);
+        if (hist.length > 3) hist.pop();
+        hEl.innerHTML = hist.map(h => '<div class="hist-item">' + h + '</div>').join('');
+        eEl.textContent = full + ' =';
+        cur = r; expr = ''; justEq = true;
+      }
+    }
+    else if (['+','-','*','/'].includes(v)) {
+      expr = (justEq ? cur : expr + cur) + v;
+      cur = '0'; justEq = false;
+    }
+    else if (v === '.') {
+      if (justEq) { cur = '0.'; justEq = false; }
+      else if (!cur.includes('.')) cur += '.';
+    }
+    else {
+      if (justEq) { cur = v; justEq = false; }
+      else cur = (cur === '0' ? v : cur + v);
+    }
+
+    if (v !== '=') eEl.textContent = expr;
+    rEl.textContent = cur.length > 12 ? cur.slice(0, 12) : cur;
+    rEl.style.fontSize = cur.length > 10 ? '24px' : '36px';
+  }
+
+  document.querySelectorAll('.btn').forEach(b => {
+    b.addEventListener('click', () => press(b.dataset.v));
+  });
+
+  document.addEventListener('keydown', e => {
+    const map = { 'Enter':'=', 'Backspace':'AC', 'Escape':'AC', '*':'*', '/':'/', '+':'+', '-':'-', '%':'%' };
+    if (map[e.key]) press(map[e.key]);
+    else if (/[0-9.]/.test(e.key)) press(e.key);
+  });
+</script>
+
+</body>
+</html>
